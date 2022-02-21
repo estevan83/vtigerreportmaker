@@ -1,0 +1,249 @@
+<?php
+/*****************************************************************************
+       _                                                 
+      | |                                                
+  __ _| | __ _  ___  _ __ ___   __ _  ___ _ __ _ __ ___  
+/ _` | |/ _` |/ _ \| '_ ` _ \ / _` |/ __| '__| '_ ` _ \
+| (_| | | (_| | (_) | | | | | | (_| | (__| |  | | | | | |
+\__,_|_|\__, |\___/|_| |_| |_|\__,_|\___|_|  |_| |_| |_|
+          __/ |                                          
+         |___/  
+Ing. Estefan Civera
+info@algoma.it
+www.algoma.it              
+
+*****************************************************************************/
+require_once('include/utils/utils.php');
+require_once("modules/Emails/class.phpmailer.php");
+require_once("modules/Emails/mail.php");
+require_once('include/logging.php');
+require_once("cron/modules/AlgomaReportScheduler/htmltable.php");
+require_once("cron/modules/AlgomaReportScheduler/emojis.php");
+require_once("config.php");
+
+
+
+error_reporting(E_ERROR);
+ini_set('display_errors', 1);
+
+$current_user = Users::getActiveAdminUser();
+
+//global $log;
+
+$log =&LoggerManager::getLogger('AlgomaReportScheduler');
+
+$db = PearDatabase::getInstance();
+
+$result = $db->pquery("
+	select * from algoma_reportscheduler
+	where enabled=1
+	and date_add(lastend, interval minutefreq minute) < now() and status = 0
+	order by sequence asc",array()
+);
+
+
+$reports = array();
+
+while($row = $db->fetchByAssoc($result,-1, false)){ // RAW DATA  IL NUCLEO - SOCIETA' COOPERATIVA SOCIALE - ONLUS
+   $reports[] = $row;
+   print_r($row);
+}
+
+$dbConn = &$db->database->_connectionID;
+
+foreach($reports as $r){
+	// -- Ready 0 Running 1
+	// IMposta il repoort come in corso e data di start = adesso
+	$db->pquery("update algoma_reportscheduler set status =? , laststart = now() where id =?", array(1/*running*/, $r['id']));
+
+	$sql = $r['code'];
+	
+	$repmsg ='';
+	
+	if($r['sendertype']=='M'){
+		$repmsg .= "<p><font color='blue'>". nl2br($r['description']) . "</font></p>";
+	}
+	else{
+		
+		$repmsg .= PHP_EOL . PHP_EOL . emojis(':pushpin:'). $r['description']  . PHP_EOL;
+	}
+	
+	
+	$headers = explode('#', $r['description']);
+		
+		
+	$rows = array();
+	$result = mysqli_multi_query($dbConn, $sql);
+	
+	$i = 1;
+	do {
+		$rows = array();
+		$titles = array();
+		// store the result set in PHP 
+		if ($result = mysqli_store_result($dbConn)) {
+			
+			
+			while ($row = mysqli_fetch_assoc($result)) {
+				
+				$titles = array_keys($row);
+				$rows[] = $row;
+				
+				if($r['sendertype'] == 'T'){
+					$tel ='';
+					$repmsg .= PHP_EOL . emojis(':clipboard:').  $headers[$i++];//. PHP_EOL;
+					
+					foreach($row as $k => $v) {
+						$tel .= $k .' : ' . $v . PHP_EOL;
+					}
+					
+					$repmsg .= str_replace($emojisKeys, $emojisValues, $tel);
+				
+				}
+			}
+			
+			if($r['sendertype'] == 'M'){
+				$repmsg .= TableHelper::createTable($headers[$i++], $rows, $titles, '', '');
+			}
+	
+		}
+		// print divider 
+		if (mysqli_more_results($dbConn)) {
+			
+		}
+	} while (mysqli_next_result($dbConn));
+
+	$db->pquery("update algoma_reportscheduler set status =? , lastend = now() where id =?", array(0/*ready*/, $r['id']));
+
+	if($r['sendertype']=='M'){
+		global $current_user,$HELPDESK_SUPPORT_EMAIL_ID, $HELPDESK_SUPPORT_NAME;
+		echo send_mail('Algoma', $r['recipients'], $HELPDESK_SUPPORT_NAME, $HELPDESK_SUPPORT_EMAIL_ID, $r['name'], $repmsg,'','','','','',true);
+	}
+	else{
+		sendTelegram($r['apikey'],PHP_EOL. emojis(':bar_chart:'). $r['name'] . emojis(':bar_chart:') .$repmsg, $r['recipients']);
+	}
+	
+		
+	
+} // foreach($reports as $r)
+
+$log->debug("*** END AlgomaReportScheduler ***");
+
+
+function sendTelegram($apikey, $message,$chatid ){
+	
+	
+	$log =&LoggerManager::getLogger('AlgomaReportScheduler');
+
+				
+	$curl = curl_init();
+			
+                                 
+	$times = str_split($message, 4096);
+        
+	
+
+	for($i=0;$i<count($times);$i++){
+        
+		//$message = urlencode(utf8_encode($times[$i]));
+           
+		curl_setopt_array($curl, array(
+			CURLOPT_URL => "https://api.telegram.org/bot".$apikey."/sendmessage",
+			CURLOPT_ENCODING => "",
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_MAXREDIRS => 10,
+			CURLOPT_TIMEOUT => 30,
+			CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+			CURLOPT_CUSTOMREQUEST => "GET",
+			CURLOPT_POSTFIELDS => "chat_id=".$chatid."&text=".$message,
+			CURLOPT_HTTPHEADER => array(
+				"content-type: application/x-www-form-urlencoded"
+			),
+		));
+
+		$response = curl_exec($curl); 
+
+		$err = curl_error($curl);
+		if ($err) {
+			//echo "ERRR";
+			//print_r($err);
+			$log->error($err);
+		} else {
+			//echo "OK";
+			//print_r($response);
+			$log->debug(print_r($response, true));
+		}
+	}
+}
+	
+	
+	
+
+
+class TableHelper {
+
+    function createTable($tabletitle, array $results = array(), $titles = null, $header, $footer) {
+        
+
+        $tablestyle = "
+	font-family: verdana,arial,sans-serif;
+	font-size:11px;
+	color:#333333;
+	border-width: 1px;
+	border-color: #666666;
+	border-collapse: collapse;";
+
+        $tablecaption = "
+	font-family: verdana,arial,sans-serif;
+	font-size:12px;
+        font-weight: bold;
+	color:green;";
+
+        $thstyle = '
+	border-width: 1px;
+	padding: 8px;
+	border-style: solid;
+	border-color: #666666;
+	background-color: #dedede;';
+
+        $tdstyle = '
+	border-width: 1px;
+	padding: 8px;
+	border-style: solid;
+	border-color: #666666;
+	background-color: #ffffff;';
+
+	if (empty($results)) {
+            $tbl = new HTML_Table('', '', array('style' => $tablestyle, 'width'=> 'auto'));
+        	$tbl->addCaption($tabletitle, '', array('style' => $tablecaption));
+		    $tbl->addRow();
+		    $tbl->addCell('Nessun dato trovato!', '', 'data', array('style' => $tdstyle));
+		    return $tbl->display();
+    }
+
+
+        $tbl = new HTML_Table('', '', array('style' => $tablestyle, 'width'=> 'auto'));
+        $tbl->addCaption($tabletitle, '', array('style' => $tablecaption));
+
+        $tbl->addRow();
+
+        if ($titles == null) {
+            $keys = array_keys(reset($results));
+            foreach ($keys as $key) {
+                $tbl->addCell($key, '', 'header', array('style' => $thstyle));
+            }
+        } else {
+            foreach ($titles as $key) {
+                $tbl->addCell($key, '', 'header', array('style' => $thstyle));
+            }
+        }
+
+        foreach ($results as $result) {
+            $tbl->addRow();
+            foreach ($result as $val) {
+                $tbl->addCell($val, '', 'data', array('style' => $tdstyle));
+            }
+        }
+        return $header . '<P>'. $tbl->display() . '<P>'. $footer;
+    }
+
+}

@@ -1,0 +1,53 @@
+-- creo la tabella
+drop table if exists algoma_reportscheduler;
+
+CREATE TABLE `algoma_reportscheduler` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) DEFAULT NULL,
+  `code` text,
+  `minutefreq` int(11) DEFAULT '0',
+  `laststart` datetime DEFAULT CURRENT_TIMESTAMP,
+  `lastend` datetime DEFAULT CURRENT_TIMESTAMP,
+  `status` int(11) DEFAULT NULL,
+  `description` text,
+  `enabled` int(11) DEFAULT NULL,
+  `sequence` int(11) DEFAULT NULL,
+  `sendertype` char(1) DEFAULT NULL,
+  `recipients` text,
+  `apikey` text,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
+
+-- inserisco un valore di esempio
+INSERT INTO `algoma_reportscheduler` (`name`, `code`, `recipients`, `minutefreq`, `laststart`, `lastend`, `status`, `description`, `enabled`)
+VALUES ('CALL pr_select_produzione_ritardi(7,2022)', 'CALL spwithparam(7,2022)', 'mail@domain.com', '60', now(), now(), NULL, NULL, NULL);
+(0.001 s)
+
+-- creo il task nello scheduler
+SET @cronmod ='AlgomaReportScheduler';
+SET @seconds = 60; -- frequenza in secondi di esecuzione
+
+INSERT INTO `vtiger_cron_task`
+(`id`, `name`, `handler_file`, `frequency`, `laststart`, `lastend`, `status`, `module`, `sequence`, `description`)
+
+SELECT * FROM
+(
+	select   
+		(SELECT MAX(id)+1 from vtiger_cron_task as X) 					AS `id` -- progressivo    
+		,@cronmod																	AS `name` 
+		,CONCAT('cron/modules/',@cronmod,'/',@cronmod,'.service')	AS `handler_file`
+		,@seconds																	AS `frequency`
+		,0																				AS `laststart`
+		,0																				AS `lastend`
+		,1																				AS `status`
+		,@cronmod																	AS `module`
+		,(SELECT MAX(id)+1 from vtiger_cron_task as X)					AS `sequence`
+		,@cronmod																	AS `description`
+) AS tmp
+WHERE NOT EXISTS(
+	SELECT * 
+	FROM vtiger_cron_task 
+	WHERE `name` = @cronmod 
+	AND `handler_file` =	CONCAT('cron/modules/',@cronmod ,'/',@cronmod ,'.service')
+) LIMIT 1;
