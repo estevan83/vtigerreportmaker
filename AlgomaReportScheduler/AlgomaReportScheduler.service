@@ -37,7 +37,7 @@ $db = PearDatabase::getInstance();
 $result = $db->pquery("
 	select * from algoma_reportscheduler
 	where enabled=1
-	and date_add(lastend, interval minutefreq minute) < now() and status = 0
+	and ifnull(date_add(lastend, interval minutefreq minute),now(5))  <= now(5) and status = 0
 	order by sequence asc",array()
 );
 
@@ -54,7 +54,7 @@ $dbConn = &$db->database->_connectionID;
 foreach($reports as $r){
 	// -- Ready 0 Running 1
 	// IMposta il repoort come in corso e data di start = adesso
-	$db->pquery("update algoma_reportscheduler set status =? , laststart = now() where id =?", array(1/*running*/, $r['id']));
+	$db->pquery("update algoma_reportscheduler set status =? , laststart = now(5) where id =?", array(1/*running*/, $r['id']));
 
 	$sql = $r['code'];
 	
@@ -112,7 +112,7 @@ foreach($reports as $r){
 		}
 	} while (mysqli_next_result($dbConn));
 
-	$db->pquery("update algoma_reportscheduler set status =? , lastend = now() where id =?", array(0/*ready*/, $r['id']));
+	$db->pquery("update algoma_reportscheduler set status =? , lastend = now(5) where id =?", array(0/*ready*/, $r['id']));
 
 	if($r['sendertype']=='M'){
 		global $current_user,$HELPDESK_SUPPORT_EMAIL_ID, $HELPDESK_SUPPORT_NAME;

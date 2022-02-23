@@ -1,13 +1,15 @@
 -- creo la tabella
 drop table if exists algoma_reportscheduler;
 
+show create table algoma_reportscheduler;
+
 CREATE TABLE `algoma_reportscheduler` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(255) DEFAULT NULL,
   `code` text,
   `minutefreq` int(11) DEFAULT '0',
-  `laststart` datetime DEFAULT CURRENT_TIMESTAMP,
-  `lastend` datetime DEFAULT CURRENT_TIMESTAMP,
+  `laststart` datetime(5) NOT NULL,
+  `lastend` datetime(5) NOT NULL,
   `status` int(11) DEFAULT NULL,
   `description` text,
   `enabled` int(11) DEFAULT NULL,
@@ -17,11 +19,11 @@ CREATE TABLE `algoma_reportscheduler` (
   `apikey` text,
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf
 
 -- inserisco un valore di esempio
 INSERT INTO `algoma_reportscheduler` (`name`, `code`, `recipients`, `minutefreq`, `laststart`, `lastend`, `status`, `description`, `enabled`)
-VALUES ('CALL pr_select_produzione_ritardi(7,2022)', 'CALL spwithparam(7,2022)', 'mail@domain.com', '60', now(), now(), NULL, NULL, NULL);
+VALUES ('CALL pr_select_produzione_ritardi(7,2022)', 'CALL spwithparam(7,2022)', 'mail@domain.com', '60', now(4), now(5), NULL, NULL, NULL);
 (0.001 s)
 
 -- creo il task nello scheduler
