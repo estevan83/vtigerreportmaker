@@ -10,7 +10,8 @@
          |___/  
 Ing. Estefan Civera
 info@algoma.it
-www.algoma.it              
+www.algoma.it    
+    
 
 *****************************************************************************/
 require_once('include/utils/utils.php');
@@ -46,6 +47,7 @@ $reports = array();
 
 while($row = $db->fetchByAssoc($result,-1, false)){ // RAW DATA  IL NUCLEO - SOCIETA' COOPERATIVA SOCIALE - ONLUS
    $reports[] = $row;
+   echo "Reports disponibili" . PHP_EOL;
    print_r($row);
 }
 
@@ -139,12 +141,16 @@ function sendTelegram($apikey, $message,$chatid ){
 			
                                  
 	$times = str_split($message, 4096);
+	
+	echo "TIMES $times";
         
 	
 
 	for($i=0;$i<count($times);$i++){
         
 		//$message = urlencode(utf8_encode($times[$i]));
+		//$message = (utf8_encode($times[$i]));
+		$message = $times[$i];
            
 		curl_setopt_array($curl, array(
 			CURLOPT_URL => "https://api.telegram.org/bot".$apikey."/sendmessage",
@@ -164,12 +170,12 @@ function sendTelegram($apikey, $message,$chatid ){
 
 		$err = curl_error($curl);
 		if ($err) {
-			//echo "ERRR";
-			//print_r($err);
+			echo "ERRR";
+			print_r($err);
 			$log->error($err);
 		} else {
-			//echo "OK";
-			//print_r($response);
+			echo "OK";
+			print_r($response);
 			$log->debug(print_r($response, true));
 		}
 	}
