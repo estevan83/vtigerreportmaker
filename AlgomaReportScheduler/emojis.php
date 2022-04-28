@@ -31,7 +31,7 @@ foreach ($emoticons as $key => $value){
 	$emojisValues[] = $value;
 }
 
-print_r($emojisValues);
+//print_r($emojisValues);
 
 
 

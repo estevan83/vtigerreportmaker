@@ -221,4 +221,124 @@ class HTML_Table {
     
 }
 
-?>
+
+class TableHelper {
+
+    function createTable($tabletitle, array $results = array(), $titles = null, $header, $footer) {
+        
+
+        $tablestyle = "
+	font-family: verdana,arial,sans-serif;
+	font-size:11px;
+	color:#333333;
+	border-width: 1px;
+	border-color: #666666;
+	border-collapse: collapse;";
+
+        $tablecaption = "
+	font-family: verdana,arial,sans-serif;
+	font-size:12px;
+        font-weight: bold;
+	color:green;";
+
+        $thstyle = '
+	border-width: 1px;
+	padding: 8px;
+	border-style: solid;
+	border-color: #666666;
+	background-color: #dedede;';
+
+        $tdstyle = '
+	border-width: 1px;
+	padding: 8px;
+	border-style: solid;
+	border-color: #666666;
+	background-color: #ffffff;';
+
+	if (empty($results)) {
+            $tbl = new HTML_Table('', '', array('style' => $tablestyle, 'width'=> 'auto'));
+        	$tbl->addCaption($tabletitle, '', array('style' => $tablecaption));
+		    $tbl->addRow();
+		    $tbl->addCell('Nessun dato trovato!', '', 'data', array('style' => $tdstyle));
+		    return $tbl->display();
+    }
+
+
+        $tbl = new HTML_Table('', '', array('style' => $tablestyle, 'width'=> 'auto'));
+        $tbl->addCaption($tabletitle, '', array('style' => $tablecaption));
+
+        $tbl->addRow();
+
+        if ($titles == null) {
+            $keys = array_keys(reset($results));
+            foreach ($keys as $key) {
+                $tbl->addCell($key, '', 'header', array('style' => $thstyle));
+            }
+        } else {
+            foreach ($titles as $key) {
+                $tbl->addCell($key, '', 'header', array('style' => $thstyle));
+            }
+        }
+
+        foreach ($results as $result) {
+            $tbl->addRow();
+            foreach ($result as $val) {
+                $tbl->addCell($val, '', 'data', array('style' => $tdstyle));
+            }
+        }
+        return $header . '<P>'. $tbl->display() . '<P>'. $footer;
+    }
+
+}
+
+
+
+function sendTelegram($apikey, $message,$chatid ){
+	
+	
+	$log =&LoggerManager::getLogger('AlgomaReportScheduler');
+
+				
+	$curl = curl_init();
+			
+                                 
+	$times = str_split($message, 4096);
+	
+	//echo "TIMES $times";
+        
+	
+
+	for($i=0;$i<count($times);$i++){
+        
+		//$message = urlencode(utf8_encode($times[$i]));
+		//$message = (utf8_encode($times[$i]));
+		$message = $times[$i];
+           
+		curl_setopt_array($curl, array(
+			CURLOPT_URL => "https://api.telegram.org/bot".$apikey."/sendmessage",
+			CURLOPT_ENCODING => "",
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_MAXREDIRS => 10,
+			CURLOPT_TIMEOUT => 30,
+			CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+			CURLOPT_CUSTOMREQUEST => "GET",
+			CURLOPT_POSTFIELDS => "chat_id=".$chatid."&text=".$message,
+			CURLOPT_HTTPHEADER => array(
+				"content-type: application/x-www-form-urlencoded"
+			),
+		));
+
+		$response = curl_exec($curl); 
+
+		$err = curl_error($curl);
+		if ($err) {
+			echo "ERR";
+			print_r($err);
+			$log->error($err);
+		} else {
+			echo "OK";
+			print_r($response);
+			$log->debug(print_r($response, true));
+		}
+	}
+}

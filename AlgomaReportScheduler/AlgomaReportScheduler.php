@@ -15,12 +15,16 @@ www.algoma.it
 *****************************************************************************/
 
 //  per debug da web attivo questo e lancio dal browser
-/*
+$id = is_numeric($_GET['id']) ? intval($_GET['id']) : 0;
+
+if($id <= 0)
+die("no valid param $id");
+
 // https://$SITE_URL/cron/modules/AlgomaReportScheduler/AlgomaReportScheduler.php
 chdir("..");
 chdir("..");
 chdir("..");
-*/
+
 
 require_once("include/utils/utils.php");
 require_once("modules/Emails/class.phpmailer.php");
@@ -49,15 +53,13 @@ if($dbConn == null){
 	$log->error(mysqli_connect_error());
 }
 
-
-$result = mysqli_query($dbConn , "select * from algoma_reportscheduler where enabled=1 and ifnull(laststart,now())  <= now(5) order by sequence asc");
-
 //  per debug da web attivo questo e lancio dal browser
-//$result = mysqli_query($dbConn , "select * from algoma_reportscheduler order by id desc");
+$result = mysqli_query($dbConn , "select * from algoma_reportscheduler where id=$id");
+
 
 
 $reports = array();
-echo "Reports disponibili" . PHP_EOL;
+
 
 while($row = mysqli_fetch_array($result,MYSQLI_ASSOC)){ // RAW DATA  IL NUCLEO - SOCIETA' COOPERATIVA SOCIALE - ONLUS
    $reports[] = $row;
@@ -69,16 +71,8 @@ mysqli_free_result($result);
 
 foreach($reports as $r){
 	
-	
-	//print_r("Esecuzione su " .print_r($r, true));
-	
-	
-	/* 	-- Ready 0 Running 1
-	 	Imposta il repoort come in corso e data di start = adesso
-    */
-	// mysqli_query($dbConn ,"update algoma_reportscheduler set status =1 , laststart = now(5) where id ={$r['id']}");
-
-	$repmsg ='';
+	$repmsg = '<title>' . $r['name'] . '</title>';
+	$repmsg .= '<p>' . $r['description'] . '</p>';
 	
 	$single = array();
 	$rows = array();
@@ -108,51 +102,21 @@ foreach($reports as $r){
 					
 					// Per la mail
 					$rows[] = $row;
-					
-					// Per telegram
-					$tel = '';
-					
-					foreach($row as $k => $v) {
-						$tel .= $k .' : ' . $v . PHP_EOL;
-					}
-					$single['body'] .= str_replace($emojisKeys, $emojisValues, $tel);					
+						
 				
 				}
 				
 			} // fine del while
-			
-			// Creo la singola tabella con intestazione commento da inviare in una mail unica
-			if($r['sendertype'] == 'M'){
-				//echo "before createTable". $comment .PHP_EOL;
-				if($titles[0] != '_comment' && $titles[0] != '_header'){
-					
-                	$repmsg .=  TableHelper::createTable(nl2br($single['header']), $rows, $titles, '', nl2br($single['comment']));
-					
-				}				
-			}
-			// Creo messaggio con intestazione commento da inviare diretto
-			if($r['sendertype'] == 'T'){
-				//echo "sendertoye = T".PHP_EOL;
-				if($titles[0] != '_comment' && $titles[0] != '_header'){
-					/*echo "HEADER_". $single['header']  .PHP_EOL;
-					echo "TESTO_" .PHP_EOL .$single['body'];
-					echo "DFOOTER_". $single['comment'] .PHP_EOL;*/
-                
-					$telegram = emojis(':pushpin:') . $single['header'] . PHP_EOL . $single['body'] . PHP_EOL . nl2br($single['comment']) . PHP_EOL;
-					
-					unset($single);
-					
-                	//echo $telegram;
-				
-					sendTelegram($r['apikey'],PHP_EOL. emojis(':bar_chart:'). $r['name'] . emojis(':bar_chart:') . PHP_EOL. $telegram, $r['recipients']);
-					
-				}				
-			}
-	
+
+            if($titles[0] != '_comment' && $titles[0] != '_header'){
+
+                $repmsg .=  TableHelper::createTable(nl2br($single['header']), $rows, $titles, '', nl2br($single['comment']));
+
+            }
 		}
 		//print divider 
 		if (mysqli_more_results($dbConn)) {
-			printf("-----------------\n");
+			//printf("-----------------\n");
 		}
 
     	// Free result set
@@ -160,16 +124,8 @@ foreach($reports as $r){
     
 	} while (mysqli_next_result($dbConn));
 
-	
-	$res = mysqli_query($dbConn ,"update algoma_reportscheduler set laststart = date_add(now(5), interval {$r['minutefreq']} minute), lastend = now(5) where id ={$r['id']}");
+	echo  $repmsg;
 
-	// invio mail con tutte le tabelle raccolte prima
-	if($r['sendertype']=='M'){
-		global $current_user,$HELPDESK_SUPPORT_EMAIL_ID, $HELPDESK_SUPPORT_NAME;
-
-    	//echo  $repmsg;
-		echo send_mail('Algoma', $r['recipients'], $HELPDESK_SUPPORT_NAME, $HELPDESK_SUPPORT_EMAIL_ID, $r['name'], $repmsg,'','','','','',true);
-	}
 	
 } // foreach($reports as $r)
 

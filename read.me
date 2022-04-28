@@ -1,7 +1,7 @@
 -- creo la tabella
 drop table if exists algoma_reportscheduler;
 
-show create table algoma_reportscheduler;
+-- show create table algoma_reportscheduler;
 
 CREATE TABLE `algoma_reportscheduler` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -19,16 +19,18 @@ CREATE TABLE `algoma_reportscheduler` (
   `apikey` text,
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
 
 -- inserisco un valore di esempio
+/*
 INSERT INTO `algoma_reportscheduler` (`name`, `code`, `recipients`, `minutefreq`, `laststart`, `lastend`, `status`, `description`, `enabled`)
 VALUES ('CALL pr_select_produzione_ritardi(7,2022)', 'CALL spwithparam(7,2022)', 'mail@domain.com', '60', now(4), now(5), NULL, NULL, NULL);
-(0.001 s)
+*/
+
 
 -- creo il task nello scheduler
 SET @cronmod ='AlgomaReportScheduler';
-SET @seconds = 60; -- frequenza in secondi di esecuzione
+SET @seconds = 900; -- frequenza in secondi di esecuzione
 
 INSERT INTO `vtiger_cron_task`
 (`id`, `name`, `handler_file`, `frequency`, `laststart`, `lastend`, `status`, `module`, `sequence`, `description`)
